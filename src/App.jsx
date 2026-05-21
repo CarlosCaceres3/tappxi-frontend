@@ -21,13 +21,23 @@ const PrivateRoute = ({ children, driverOnly = false }) => {
 };
 
 const Layout = () => {
-  const { user } = useAuth();
-  const hideNavPaths = ['/', '/login', '/register'];
-  const isPublic = hideNavPaths.includes(window.location.pathname);
+  const { user, loading } = useAuth();
+  const location = window.location.pathname;
+  const publicPaths = ['/', '/login', '/register'];
+  const isPublic = publicPaths.includes(location);
+
+  // Solo mostrar loading en rutas protegidas
+  if (loading && !isPublic) return (
+    <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#111', color: '#555' }}>
+      Cargando...
+    </div>
+  );
+
+  const hideNav = ['/login', '/register'].includes(location);
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <Navbar />
+      {!hideNav && <Navbar />}
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<AuthPage />} />

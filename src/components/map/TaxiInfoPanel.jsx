@@ -1,7 +1,9 @@
+// src/components/map/TaxiInfoPanel.jsx
 import { useState, useEffect } from 'react';
 import { driverAPI, taxiAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import RatingForm from '../driver/RatingForm';
+import { RequestTripButton } from '../trip/TripRequest';
 
 const Stars = ({ value, size = 16 }) => (
   <span style={{ fontSize: size, letterSpacing: 1 }}>
@@ -23,7 +25,7 @@ const PayBadge = ({ type }) => {
   );
 };
 
-export default function TaxiInfoPanel({ taxi, onClose }) {
+export default function TaxiInfoPanel({ taxi, position, activeTrip, onRequestTrip, onClose }) {
   const { user } = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -120,6 +122,14 @@ export default function TaxiInfoPanel({ taxi, onClose }) {
             </div>
           </div>
 
+          {/* BOTÓN SOLICITAR VIAJE */}
+          <RequestTripButton
+            taxi={taxi}
+            position={position}
+            onRequest={onRequestTrip}
+            disabled={!!activeTrip}
+          />
+
           {/* Pagos */}
           <div>
             <div style={{ fontSize: 11, color: '#555', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Acepta</div>
@@ -133,8 +143,8 @@ export default function TaxiInfoPanel({ taxi, onClose }) {
             {profile.profiles?.phone && (
               <a href={`tel:${profile.profiles.phone}`} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                padding: 12, background: '#F5C000', borderRadius: 10,
-                color: '#000', fontWeight: 600, fontSize: 14,
+                padding: 12, background: '#1a1a1a', border: '0.5px solid #2a2a2a', borderRadius: 10,
+                color: '#888', fontSize: 14,
               }}>
                 📞 Llamar al conductor
               </a>
@@ -143,15 +153,15 @@ export default function TaxiInfoPanel({ taxi, onClose }) {
               <a href={`https://wa.me/57${profile.profiles.phone.replace(/\D/g,'')}`}
                 target="_blank" rel="noreferrer" style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                padding: 12, background: '#14a800', borderRadius: 10,
-                color: '#fff', fontWeight: 600, fontSize: 14,
+                padding: 12, background: '#1a1a1a', border: '0.5px solid #2a2a2a', borderRadius: 10,
+                color: '#888', fontSize: 14,
               }}>
                 💬 WhatsApp
               </a>
             )}
           </div>
 
-          {/* Reseñas recientes */}
+          {/* Reseñas */}
           {profile.ratings?.length > 0 && (
             <div>
               <div style={{ fontSize: 11, color: '#555', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>

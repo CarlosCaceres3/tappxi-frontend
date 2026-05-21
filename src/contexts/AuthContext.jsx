@@ -1,99 +1,104 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { authAPI } from '../services/api';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser]       = useState(null);
-  const [profile, setProfile] = useState(null);
+  const [user, setUser]       = useState(undefined); // undefined = todavía cargando
   const [loading, setLoading] = useState(true);
 
-  const loadProfile = useCallback(async (authUser) => {
-    if (!authUser) { setProfile(null); return; }
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', authUser.id)
-        .single();
-
-      if (error || !data) {
-        setProfile(null);
-      } else {
-        setProfile(data);
-      }
-    } catch {
-      setProfile(null);
+  const buildUser = useCallback(async (authUser) => {
+    if (!authUser) {
+      setUser(null);
+      setLoading(false);
+      return;
     }
+    // Primero setear con metadata del token (instantáneo, sin BD)
+    const tokenUser = {
+      id:    authUser.id,
+      email: authUser.email,
+      name:  authUser.user_metadata?.name  ?? 'Usuario',
+      phone: authUser.user_metadata?.phone ?? null,
+      role:  authUser.user_metadata?.role  ?? 'PASSENGER',
+    };
+    setUser(tokenUser);
+    setLoading(false);
+
+    // Luego enriquecer con datos de la tabla profiles (en segundo plano)
+    supabase
+      .from('profiles')
+      .select('name, phone, role')
+      .eq('id', authUser.id)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setUser({
+            ...tokenUser,
+            name:  data.name  ?? tokenUser.name,
+            phone: data.phone ?? tokenUser.phone,
+            role:  data.role  ?? tokenUser.role,
+          });
+        }
+      });
   }, []);
 
   useEffect(() => {
-    // Sesión inicial
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      loadProfile(session?.user ?? null).finally(() => setLoading(false));
+      buildUser(session?.user ?? null);
     });
 
-    // Listener de cambios de sesión
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (event === 'SIGNED_OUT') {
           setUser(null);
-          setProfile(null);
           setLoading(false);
           return;
         }
-        if (session?.user) {
-          setUser(session.user);
-          await loadProfile(session.user);
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          buildUser(session?.user ?? null);
         }
-        setLoading(false);
       }
     );
 
     return () => subscription.unsubscribe();
-  }, [loadProfile]);
+  }, [buildUser]);
 
   const login = useCallback(async (email, password) => {
-    const data = await authAPI.login({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
     return data;
   }, []);
 
-  const register = useCallback(async (formData) => {
-    const data = await authAPI.register(formData);
+  const register = useCallback(async ({ name, email, password, phone, role }) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { name, phone: phone || null, role: role || 'PASSENGER' }
+      },
+    });
+    if (error) throw error;
     return data;
   }, []);
 
   const logout = useCallback(async () => {
-    await authAPI.logout();
+    await supabase.auth.signOut();
     setUser(null);
-    setProfile(null);
+    setLoading(false);
   }, []);
 
-  const currentUser = user && profile
-    ? {
-        id:    user.id,
-        email: user.email,
-        name:  profile.name,
-        phone: profile.phone,
-        role:  profile.role,
-      }
-    : null;
-
-  const isDriver    = profile?.role === 'DRIVER';
-  const isPassenger = profile?.role === 'PASSENGER';
+  const isDriver    = user?.role === 'DRIVER';
+  const isPassenger = user?.role === 'PASSENGER';
 
   return (
     <AuthContext.Provider value={{
-      user: currentUser,
+      user:     user ?? null,
       loading,
       login,
       register,
       logout,
       isDriver,
       isPassenger,
-      reloadProfile: () => loadProfile(user),
     }}>
       {children}
     </AuthContext.Provider>

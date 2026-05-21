@@ -1,10 +1,13 @@
+// src/pages/MapPage.jsx
 import { useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
 import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { useNearbyTaxis } from '../hooks/useNearbyTaxis';
+import { useTripPassenger } from '../hooks/useTripPassenger';
 import TaxiInfoPanel from '../components/map/TaxiInfoPanel';
+import { ActiveTripPanel } from '../components/trip/TripRequest';
 
 const TAXI_ICON = L.divIcon({
   className: '',
@@ -60,6 +63,7 @@ const TaxiMarker = ({ taxi, onSelect }) => {
 export default function MapPage() {
   const { position, loading: geoLoading } = useGeolocation();
   const { taxis, loading, error, refetch } = useNearbyTaxis(position);
+  const { trip, requestTrip, cancelTrip }  = useTripPassenger();
   const [selected, setSelected] = useState(null);
 
   return (
@@ -86,12 +90,12 @@ export default function MapPage() {
             <span style={{ fontSize: 13, color: '#F0F0F0' }}>
               {taxis.length} taxi{taxis.length !== 1 ? 's' : ''} cercano{taxis.length !== 1 ? 's' : ''}
             </span>
-            <span style={{ color: '#333', fontSize: 13 }}>·</span>
+            <span style={{ color: '#333' }}>·</span>
             <span style={{ fontSize: 13, color: '#666' }}>Radio 2 km</span>
             <button onClick={refetch} style={{
               background: 'none', border: 'none', color: '#F5C000',
               fontSize: 16, cursor: 'pointer', padding: '0 2px', lineHeight: 1,
-            }} title="Actualizar">↻</button>
+            }}>↻</button>
           </>
         )}
       </div>
@@ -120,10 +124,19 @@ export default function MapPage() {
         </div>
       )}
 
-      {/* Panel lateral */}
+      {/* Panel lateral del taxi seleccionado */}
       {selected && (
-        <TaxiInfoPanel taxi={selected} onClose={() => setSelected(null)} />
+        <TaxiInfoPanel
+          taxi={selected}
+          position={position}
+          activeTrip={trip}
+          onRequestTrip={requestTrip}
+          onClose={() => setSelected(null)}
+        />
       )}
+
+      {/* Panel flotante del viaje activo */}
+      <ActiveTripPanel trip={trip} onCancel={cancelTrip} />
     </div>
   );
 }

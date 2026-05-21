@@ -20,26 +20,20 @@ export default function AuthPage() {
 
   const set = (k) => (e) => setForm(f => ({ ...f, [k]: e.target.value }));
 
-  const handleSubmit = async () => {
-    setError('');
-    if (!form.email || !form.password) { setError('Completa los campos obligatorios'); return; }
-    if (mode === 'register' && !form.name) { setError('El nombre es obligatorio'); return; }
-    if (mode === 'register' && form.password.length < 8) { setError('La contraseña debe tener mínimo 8 caracteres'); return; }
-
-    setLoading(true);
-    try {
-      if (mode === 'login') {
-        await login(form.email, form.password);
-      } else {
-        await register({ name: form.name, email: form.email, password: form.password, phone: form.phone, role: form.role });
-      }
-      navigate('/map');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Error de autenticación');
-    } finally {
-      setLoading(false);
-    }
-  };
+const handleSubmit = async () => {
+  setError('');
+  setLoading(true);
+  try {
+    console.log('Intentando login con:', form.email);
+    const result = await login(form.email, form.password);
+    console.log('Login result:', result);
+    navigate('/map');
+  } catch (err) {
+    console.log('Login error:', err);
+    setError(err.message || 'Error de autenticación');
+    setLoading(false);
+  }
+};
 
   const handleKey = (e) => { if (e.key === 'Enter') handleSubmit(); };
 
