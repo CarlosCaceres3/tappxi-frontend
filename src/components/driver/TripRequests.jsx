@@ -1,15 +1,19 @@
 // src/components/driver/TripRequests.jsx
+import { useState } from 'react';
 import { useTripDriver } from '../../hooks/useTripDriver';
+import ChatWindow from '../chat/ChatWindow';
 
-const TripCard = ({ trip, onAccept, onReject, onStart, onComplete }) => {
-  const passenger = trip.profiles;
+const TripCard = ({ trip, onAccept, onReject, onStart, onComplete, onChat }) => {
+  const passenger  = trip.profiles;
   const isPending    = trip.status === 'PENDING';
   const isAccepted   = trip.status === 'ACCEPTED';
   const isInProgress = trip.status === 'IN_PROGRESS';
+  const canChat      = isAccepted || isInProgress;
 
   return (
     <div style={{
-      background: '#111', border: `0.5px solid ${isPending ? '#F5C000' : '#2a2a2a'}`,
+      background: '#111',
+      border: `0.5px solid ${isPending ? '#F5C000' : '#2a2a2a'}`,
       borderRadius: 12, padding: 16, marginBottom: 12,
       boxShadow: isPending ? '0 0 0 1px #F5C00020' : 'none',
       transition: 'border-color .2s',
@@ -42,11 +46,24 @@ const TripCard = ({ trip, onAccept, onReject, onStart, onComplete }) => {
         <div>
           <div style={{ fontWeight: 500, fontSize: 14 }}>{passenger?.name || 'Pasajero'}</div>
           {passenger?.phone && (
-            <a href={`tel:${passenger.phone}`} style={{ fontSize: 12, color: '#F5C000', marginTop: 2, display: 'block' }}>
+            <a href={`tel:${passenger.phone}`}
+              style={{ fontSize: 12, color: '#F5C000', marginTop: 2, display: 'block' }}>
               📞 {passenger.phone}
             </a>
           )}
         </div>
+        {/* Botón de chat */}
+        {canChat && (
+          <button onClick={() => onChat(trip)} style={{
+            marginLeft: 'auto',
+            background: '#1e1e1e', border: '0.5px solid #2a2a2a',
+            borderRadius: 8, padding: '6px 12px',
+            color: '#F5C000', fontSize: 12, fontWeight: 500,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+          }}>
+            💬 Chat
+          </button>
+        )}
       </div>
 
       {/* Origen */}
@@ -104,7 +121,12 @@ const TripCard = ({ trip, onAccept, onReject, onStart, onComplete }) => {
 };
 
 export default function TripRequests() {
-  const { trips, loading, pendingTrips, activeTrip, acceptTrip, rejectTrip, startTrip, completeTrip } = useTripDriver();
+  const {
+    trips, loading, pendingTrips, activeTrip,
+    acceptTrip, rejectTrip, startTrip, completeTrip,
+  } = useTripDriver();
+
+  const [chatTrip, setChatTrip] = useState(null);
 
   if (loading) return (
     <div style={{ padding: 20, textAlign: 'center', color: '#555', fontSize: 13 }}>
@@ -115,43 +137,55 @@ export default function TripRequests() {
   const allTrips = [...(activeTrip ? [activeTrip] : []), ...pendingTrips];
 
   return (
-    <div style={{ padding: '16px 0' }}>
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        marginBottom: 14, paddingBottom: 12, borderBottom: '0.5px solid #1e1e1e',
-      }}>
-        <span style={{ fontSize: 13, fontWeight: 500 }}>Solicitudes de viaje</span>
-        {pendingTrips.length > 0 && (
-          <span style={{
-            width: 20, height: 20, borderRadius: '50%', background: '#F5C000',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 11, fontWeight: 600, color: '#000',
+    <>
+      <div style={{ padding: '16px 0' }}>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          marginBottom: 14, paddingBottom: 12, borderBottom: '0.5px solid #1e1e1e',
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 500 }}>Solicitudes de viaje</span>
+          {pendingTrips.length > 0 && (
+            <span style={{
+              width: 20, height: 20, borderRadius: '50%', background: '#F5C000',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 11, fontWeight: 600, color: '#000',
+            }}>
+              {pendingTrips.length}
+            </span>
+          )}
+        </div>
+
+        {allTrips.length === 0 ? (
+          <div style={{
+            padding: '24px 0', textAlign: 'center',
+            color: '#555', fontSize: 13, lineHeight: 1.6,
           }}>
-            {pendingTrips.length}
-          </span>
+            Sin solicitudes por ahora.<br />
+            Actívate como <span style={{ color: '#F5C000' }}>Disponible</span> para recibir viajes.
+          </div>
+        ) : (
+          allTrips.map((trip) => (
+            <TripCard
+              key={trip.id}
+              trip={trip}
+              onAccept={acceptTrip}
+              onReject={rejectTrip}
+              onStart={startTrip}
+              onComplete={completeTrip}
+              onChat={setChatTrip}
+            />
+          ))
         )}
       </div>
 
-      {allTrips.length === 0 ? (
-        <div style={{
-          padding: '24px 0', textAlign: 'center',
-          color: '#555', fontSize: 13, lineHeight: 1.6,
-        }}>
-          Sin solicitudes por ahora.<br />
-          Actívate como <span style={{ color: '#F5C000' }}>Disponible</span> para recibir viajes.
-        </div>
-      ) : (
-        allTrips.map((trip) => (
-          <TripCard
-            key={trip.id}
-            trip={trip}
-            onAccept={acceptTrip}
-            onReject={rejectTrip}
-            onStart={startTrip}
-            onComplete={completeTrip}
-          />
-        ))
+      {/* Chat flotante para el conductor */}
+      {chatTrip && (
+        <ChatWindow
+          tripId={chatTrip.id}
+          otherName={chatTrip.profiles?.name || 'Pasajero'}
+          onClose={() => setChatTrip(null)}
+        />
       )}
-    </div>
+    </>
   );
 }

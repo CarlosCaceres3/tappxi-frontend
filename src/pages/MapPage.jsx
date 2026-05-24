@@ -8,6 +8,7 @@ import { useNearbyTaxis } from '../hooks/useNearbyTaxis';
 import { useTripPassenger } from '../hooks/useTripPassenger';
 import TaxiInfoPanel from '../components/map/TaxiInfoPanel';
 import { ActiveTripPanel } from '../components/trip/TripRequest';
+import ChatWindow from '../components/chat/ChatWindow';
 
 const TAXI_ICON = L.divIcon({
   className: '',
@@ -46,7 +47,8 @@ const TaxiMarker = ({ taxi, onSelect }) => {
           <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{taxi.name}</div>
           <div style={{ fontSize: 12, color: '#888', marginBottom: 6 }}>{taxi.vehicleModel} · {taxi.vehicleColor}</div>
           <div style={{ fontSize: 13, color: '#F5C000', marginBottom: 8 }}>
-            {'★'.repeat(Math.round(taxi.averageRating))}{'☆'.repeat(5 - Math.round(taxi.averageRating))}
+            {'★'.repeat(Math.round(taxi.averageRating))}
+            {'☆'.repeat(5 - Math.round(taxi.averageRating))}
             <span style={{ color: '#888', marginLeft: 4 }}>{taxi.averageRating?.toFixed(1)}</span>
           </div>
           <div style={{ fontSize: 12, color: '#888', marginBottom: 10 }}>A {taxi.distanceKm} km de ti</div>
@@ -64,7 +66,20 @@ export default function MapPage() {
   const { position, loading: geoLoading } = useGeolocation();
   const { taxis, loading, error, refetch } = useNearbyTaxis(position);
   const { trip, requestTrip, cancelTrip }  = useTripPassenger();
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected]            = useState(null);
+  const [showChat, setShowChat]            = useState(false);
+
+  // Mostrar chat automáticamente cuando el conductor acepta
+  useEffect(() => {
+    if (trip?.status === 'ACCEPTED' || trip?.status === 'IN_PROGRESS') {
+      setShowChat(true);
+    }
+    if (!trip || trip.status === 'COMPLETED' || trip.status === 'REJECTED') {
+      setShowChat(false);
+    }
+  }, [trip?.status]);
+
+  const driverName = trip?.drivers?.profiles?.name;
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
@@ -100,6 +115,25 @@ export default function MapPage() {
         )}
       </div>
 
+      {/* Botón abrir chat (visible cuando hay viaje activo) */}
+      {trip && ['ACCEPTED', 'IN_PROGRESS'].includes(trip.status) && (
+        <button
+          onClick={() => setShowChat(s => !s)}
+          style={{
+            position: 'absolute', top: 16, right: 16, zIndex: 500,
+            background: showChat ? '#F5C000' : '#1A1A1A',
+            border: `0.5px solid ${showChat ? '#F5C000' : '#2a2a2a'}`,
+            borderRadius: 999, padding: '8px 16px',
+            fontSize: 13, fontWeight: 500,
+            color: showChat ? '#000' : '#F0F0F0',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+            boxShadow: '0 4px 12px rgba(0,0,0,.4)',
+          }}
+        >
+          💬 Chat
+        </button>
+      )}
+
       {/* Mapa */}
       {position ? (
         <MapContainer center={[position.lat, position.lng]} zoom={15}
@@ -124,7 +158,7 @@ export default function MapPage() {
         </div>
       )}
 
-      {/* Panel lateral del taxi seleccionado */}
+      {/* Panel lateral del taxi */}
       {selected && (
         <TaxiInfoPanel
           taxi={selected}
@@ -135,8 +169,17 @@ export default function MapPage() {
         />
       )}
 
-      {/* Panel flotante del viaje activo */}
+      {/* Panel flotante del viaje */}
       <ActiveTripPanel trip={trip} onCancel={cancelTrip} />
+
+      {/* Chat flotante */}
+      {showChat && trip?.id && (
+        <ChatWindow
+          tripId={trip.id}
+          otherName={driverName}
+          onClose={() => setShowChat(false)}
+        />
+      )}
     </div>
   );
 }
