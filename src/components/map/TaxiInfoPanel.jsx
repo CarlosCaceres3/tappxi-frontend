@@ -1,9 +1,8 @@
 // src/components/map/TaxiInfoPanel.jsx
 import { useState, useEffect } from 'react';
-import { driverAPI, taxiAPI } from '../../services/api';
+import { driverAPI, taxiAPI, historyAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import RatingForm from '../driver/RatingForm';
-import { RequestTripButton } from '../trip/TripRequest';
 
 const Stars = ({ value, size = 16 }) => (
   <span style={{ fontSize: size, letterSpacing: 1 }}>
@@ -27,24 +26,48 @@ const PayBadge = ({ type }) => {
 
 export default function TaxiInfoPanel({ taxi, position, activeTrip, onRequestTrip, onClose }) {
   const { user } = useAuth();
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [profile, setProfile]     = useState(null);
+  const [loading, setLoading]     = useState(true);
   const [showRating, setShowRating] = useState(false);
-  const [rated, setRated] = useState(false);
+  const [rated, setRated]         = useState(false);
+  const [tripToRate, setTripToRate] = useState(null); // viaje completado sin calificar
 
   useEffect(() => {
-    setLoading(true); setShowRating(false); setRated(false);
-    driverAPI.getProfile(taxi.id)
-      .then(setProfile)
+    setLoading(true); setShowRating(false); setRated(false); setTripToRate(null);
+
+    Promise.all([
+      driverAPI.getProfile(taxi.id),
+      // Buscar si hay viaje completado sin calificar con este conductor
+      user?.id ? historyAPI.getPassengerHistory(user.id) : Promise.resolve([]),
+    ])
+      .then(([profileData, history]) => {
+        setProfile(profileData);
+        // Encontrar viaje completado con este conductor que no tenga calificación
+        const unrated = history.find(t =>
+          t.drivers?.id === taxi.id &&
+          (!t.ratings || t.ratings.length === 0)
+        );
+        setTripToRate(unrated || null);
+      })
       .catch(() => setProfile(null))
       .finally(() => setLoading(false));
-  }, [taxi.id]);
+  }, [taxi.id, user?.id]);
 
   const handleRate = async ({ score, comment }) => {
-    await taxiAPI.rateDriver({ raterId: user.id, driverId: taxi.id, score, comment });
+    await taxiAPI.rateDriver({
+      raterId:  user.id,
+      driverId: taxi.id,
+      tripId:   tripToRate.id,
+      score,
+      comment,
+    });
     setShowRating(false);
     setRated(true);
+    setTripToRate(null);
   };
+
+  // ¿Puede calificar? Solo si hay viaje completado sin calificar
+  const canRate = !!tripToRate && !rated;
 
   return (
     <div style={{
@@ -80,9 +103,7 @@ export default function TaxiInfoPanel({ taxi, position, activeTrip, onRequestTri
             }
           </div>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 500 }}>
-              {loading ? '—' : profile?.profiles?.name}
-            </div>
+            <div style={{ fontSize: 17, fontWeight: 500 }}>{loading ? '—' : profile?.profiles?.name}</div>
             {!loading && profile && (
               <div style={{ marginTop: 3, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Stars value={profile.avg_rating} size={14} />
@@ -122,13 +143,27 @@ export default function TaxiInfoPanel({ taxi, position, activeTrip, onRequestTri
             </div>
           </div>
 
-          {/* BOTÓN SOLICITAR VIAJE */}
-          <RequestTripButton
-            taxi={taxi}
-            position={position}
-            onRequest={onRequestTrip}
+          {/* Botón solicitar */}
+          <button
+            onClick={() => onRequestTrip({
+              driverId:      taxi.id,
+              originLat:     position?.lat,
+              originLng:     position?.lng,
+              originAddress: 'Mi ubicación actual',
+            })}
             disabled={!!activeTrip}
-          />
+            style={{
+              width: '100%', padding: '13px',
+              background: activeTrip ? '#1e1e1e' : '#F5C000',
+              border: `0.5px solid ${activeTrip ? '#2a2a2a' : '#F5C000'}`,
+              borderRadius: 10, fontWeight: 600, fontSize: 15,
+              color: activeTrip ? '#555' : '#000',
+              cursor: activeTrip ? 'not-allowed' : 'pointer',
+              transition: 'all .15s',
+            }}
+          >
+            {activeTrip ? 'Ya tienes un viaje activo' : '🚕 Solicitar este taxi'}
+          </button>
 
           {/* Pagos */}
           <div>
@@ -144,7 +179,7 @@ export default function TaxiInfoPanel({ taxi, position, activeTrip, onRequestTri
               <a href={`tel:${profile.profiles.phone}`} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 padding: 12, background: '#1a1a1a', border: '0.5px solid #2a2a2a', borderRadius: 10,
-                color: '#888', fontSize: 14,
+                color: '#888', fontSize: 14, textDecoration: 'none',
               }}>
                 📞 Llamar al conductor
               </a>
@@ -154,14 +189,14 @@ export default function TaxiInfoPanel({ taxi, position, activeTrip, onRequestTri
                 target="_blank" rel="noreferrer" style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 padding: 12, background: '#1a1a1a', border: '0.5px solid #2a2a2a', borderRadius: 10,
-                color: '#888', fontSize: 14,
+                color: '#888', fontSize: 14, textDecoration: 'none',
               }}>
                 💬 WhatsApp
               </a>
             )}
           </div>
 
-          {/* Reseñas */}
+          {/* Últimas reseñas */}
           {profile.ratings?.length > 0 && (
             <div>
               <div style={{ fontSize: 11, color: '#555', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
@@ -179,22 +214,32 @@ export default function TaxiInfoPanel({ taxi, position, activeTrip, onRequestTri
             </div>
           )}
 
-          {/* Calificar */}
-          {!rated && !showRating && (
-            <button className="btn btn-ghost" onClick={() => setShowRating(true)} style={{ width: '100%' }}>
-              ⭐ Calificar conductor
-            </button>
+          {/* Calificar viaje pendiente */}
+          {canRate && !showRating && (
+            <div style={{
+              background: '#1e1e00', border: '0.5px solid #3a3a00',
+              borderRadius: 10, padding: 14,
+            }}>
+              <div style={{ fontSize: 13, color: '#F5C000', marginBottom: 10 }}>
+                ⭐ Tienes un viaje sin calificar con este conductor
+              </div>
+              <button className="btn btn-primary" onClick={() => setShowRating(true)} style={{ width: '100%' }}>
+                Calificar viaje
+              </button>
+            </div>
           )}
+
           {showRating && (
             <RatingForm onSubmit={handleRate} onCancel={() => setShowRating(false)} />
           )}
+
           {rated && (
             <div style={{
               padding: 14, background: 'rgba(34,197,94,.08)',
               border: '0.5px solid rgba(34,197,94,.2)',
               borderRadius: 10, textAlign: 'center', color: '#22c55e', fontSize: 14,
             }}>
-              ✅ Calificación enviada
+              ✅ ¡Calificación enviada!
             </div>
           )}
         </div>
