@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { driverAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import TripRequests from './TripRequests';
+import DriverSetupForm from './DriverSetupForm';
 
 const STATUS = {
   AVAILABLE: { label: 'Disponible', color: '#22c55e', bg: 'rgba(34,197,94,.1)', border: 'rgba(34,197,94,.2)' },
@@ -25,7 +26,7 @@ export default function DriverPanel() {
   const [updatingStatus, setUpdatingStatus] = useState(null);
   const [newType, setNewType]               = useState('cash');
   const [addingPayment, setAddingPayment]   = useState(false);
-  const [activeTab, setActiveTab]           = useState('status'); // 'status' | 'trips'
+  const [activeTab, setActiveTab]           = useState('status');
   const intervalRef = useRef(null);
 
   useEffect(() => { loadDriver(); }, [user?.id]);
@@ -35,7 +36,10 @@ export default function DriverPanel() {
     if (driver?.status === 'AVAILABLE') {
       const broadcast = () => {
         navigator.geolocation?.getCurrentPosition(({ coords }) => {
-          driverAPI.updateLocation(driver.id, { lat: coords.latitude, lng: coords.longitude });
+          driverAPI.updateLocation(driver.id, {
+            lat: coords.latitude,
+            lng: coords.longitude,
+          });
         });
       };
       broadcast();
@@ -73,15 +77,20 @@ export default function DriverPanel() {
   };
 
   const removePayment = async (id) => {
-    await driverAPI.removePaymentMethod(id); await loadDriver();
+    await driverAPI.removePaymentMethod(id);
+    await loadDriver();
   };
 
-  if (loading) return <div style={{ padding: 32, textAlign: 'center', color: '#555' }}>Cargando panel...</div>;
-  if (!driver)  return (
-    <div style={{ padding: 32, textAlign: 'center' }}>
-      <div style={{ fontSize: 40, marginBottom: 12 }}>🚗</div>
-      <p style={{ color: '#888', marginBottom: 16 }}>Aún no tienes perfil de conductor</p>
+  // Cargando
+  if (loading) return (
+    <div style={{ padding: 32, textAlign: 'center', color: '#555' }}>
+      Cargando panel...
     </div>
+  );
+
+  // Sin perfil → mostrar formulario
+  if (!driver) return (
+    <DriverSetupForm onComplete={loadDriver} />
   );
 
   const s = STATUS[driver.status] || STATUS.OFFLINE;
@@ -90,7 +99,10 @@ export default function DriverPanel() {
     <div style={{ padding: 24, maxWidth: 520, margin: '0 auto' }}>
 
       {/* Bienvenida */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 16, borderBottom: '0.5px solid #1e1e1e', marginBottom: 16 }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 12,
+        paddingBottom: 16, borderBottom: '0.5px solid #1e1e1e', marginBottom: 16,
+      }}>
         <div style={{
           width: 46, height: 46, borderRadius: '50%', background: '#F5C000',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -99,7 +111,9 @@ export default function DriverPanel() {
           {user?.name?.[0]?.toUpperCase()}
         </div>
         <div>
-          <div style={{ fontWeight: 500, fontSize: 16 }}>Hola, {user?.name?.split(' ')[0]}</div>
+          <div style={{ fontWeight: 500, fontSize: 16 }}>
+            Hola, {user?.name?.split(' ')[0]}
+          </div>
           <div style={{ fontSize: 13, color: '#888', marginTop: 2 }}>
             {driver.vehicle_model} · {driver.vehicle_plate}
           </div>
@@ -174,14 +188,20 @@ export default function DriverPanel() {
             <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 14 }}>Mi calificación</div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
               <span style={{ fontSize: 48, fontWeight: 500, color: '#F5C000', lineHeight: 1 }}>
-                {Number(driver.avg_rating).toFixed(1)}
+                {Number(driver.avg_rating || 0).toFixed(1)}
               </span>
               <div>
                 <div style={{ fontSize: 22, letterSpacing: 2 }}>
-                  <span style={{ color: '#F5C000' }}>{'★'.repeat(Math.round(driver.avg_rating))}</span>
-                  <span style={{ color: '#333' }}>{'★'.repeat(5 - Math.round(driver.avg_rating))}</span>
+                  <span style={{ color: '#F5C000' }}>
+                    {'★'.repeat(Math.round(driver.avg_rating || 0))}
+                  </span>
+                  <span style={{ color: '#333' }}>
+                    {'★'.repeat(5 - Math.round(driver.avg_rating || 0))}
+                  </span>
                 </div>
-                <div style={{ fontSize: 13, color: '#555', marginTop: 2 }}>{driver.total_ratings} calificaciones</div>
+                <div style={{ fontSize: 13, color: '#555', marginTop: 2 }}>
+                  {driver.total_ratings || 0} calificaciones
+                </div>
               </div>
             </div>
           </div>
@@ -189,32 +209,43 @@ export default function DriverPanel() {
           {/* Métodos de pago */}
           <div style={{ background: '#1A1A1A', border: '0.5px solid #2a2a2a', borderRadius: 14, padding: 20 }}>
             <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 14 }}>Métodos de pago</div>
+
             {(!driver.payment_methods || driver.payment_methods.length === 0) && (
-              <p style={{ fontSize: 13, color: '#555', marginBottom: 12 }}>No has agregado métodos aún</p>
+              <p style={{ fontSize: 13, color: '#555', marginBottom: 12 }}>
+                No has agregado métodos aún
+              </p>
             )}
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
               {driver.payment_methods?.filter(m => m.is_active).map((m) => (
                 <div key={m.id} style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   padding: '10px 14px', background: '#111', borderRadius: 8,
                 }}>
-                  <span style={{ fontSize: 14 }}>{PAYMENTS.find(p => p.value === m.type)?.label || m.type}</span>
+                  <span style={{ fontSize: 14 }}>
+                    {PAYMENTS.find(p => p.value === m.type)?.label || m.type}
+                  </span>
                   <button onClick={() => removePayment(m.id)} style={{
-                    background: 'none', border: 'none', color: '#444', fontSize: 18, cursor: 'pointer',
+                    background: 'none', border: 'none', color: '#444',
+                    fontSize: 18, cursor: 'pointer', lineHeight: 1,
                   }}>×</button>
                 </div>
               ))}
             </div>
+
             <div style={{ display: 'flex', gap: 8 }}>
               <select value={newType} onChange={e => setNewType(e.target.value)}
                 style={{
                   flex: 1, background: '#111', border: '0.5px solid #2a2a2a',
-                  borderRadius: 8, padding: '9px 12px', color: '#F0F0F0', fontSize: 13, outline: 'none',
+                  borderRadius: 8, padding: '9px 12px', color: '#F0F0F0',
+                  fontSize: 13, outline: 'none',
                 }}>
-                {PAYMENTS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                {PAYMENTS.map(p => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
+                ))}
               </select>
-              <button className="btn btn-primary" onClick={addPayment} disabled={addingPayment}
-                style={{ padding: '9px 16px', fontSize: 13 }}>
+              <button className="btn btn-primary" onClick={addPayment}
+                disabled={addingPayment} style={{ padding: '9px 16px', fontSize: 13 }}>
                 {addingPayment ? '...' : 'Agregar'}
               </button>
             </div>

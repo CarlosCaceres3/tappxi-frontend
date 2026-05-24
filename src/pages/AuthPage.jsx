@@ -22,14 +22,25 @@ export default function AuthPage() {
 
 const handleSubmit = async () => {
   setError('');
+  if (!form.email || !form.password) { setError('Completa los campos obligatorios'); return; }
+  if (mode === 'register' && !form.name) { setError('El nombre es obligatorio'); return; }
+  if (mode === 'register' && form.password.length < 8) { setError('Mínimo 8 caracteres'); return; }
+
   setLoading(true);
   try {
-    console.log('Intentando login con:', form.email);
-    const result = await login(form.email, form.password);
-    console.log('Login result:', result);
+    if (mode === 'login') {
+      await login(form.email, form.password);
+    } else {
+      await register({
+        name:     form.name,
+        email:    form.email,
+        password: form.password,
+        phone:    form.phone,
+        role:     form.role,
+      });
+    }
     navigate('/map');
   } catch (err) {
-    console.log('Login error:', err);
     setError(err.message || 'Error de autenticación');
     setLoading(false);
   }
