@@ -34,7 +34,7 @@ const Navbar = () => {
           </svg>
         </div>
         <span style={{ fontSize: 18, fontWeight: 500, color: '#F0F0F0', letterSpacing: '-.3px' }}>
-          Tapp<span style={{ color: '#F5C000' }}>xi</span>
+          Cabp<span style={{ color: '#F5C000' }}>xi</span>
         </span>
       </Link>
 

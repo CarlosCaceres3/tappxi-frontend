@@ -69,7 +69,7 @@ const handleSubmit = async () => {
               </svg>
             </div>
             <span style={{ fontSize: 26, fontWeight: 500, letterSpacing: -.5 }}>
-              Tapp<span style={{ color: '#F5C000' }}>xi</span>
+              Cabp<span style={{ color: '#F5C000' }}>xi</span>
             </span>
           </Link>
           <p style={{ fontSize: 14, color: '#666' }}>

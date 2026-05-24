@@ -82,7 +82,7 @@ export default function HomePage() {
       {/* ── FEATURES ────────────────────────────────── */}
       <section style={S.sectionFull}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <p className="section-label">Por qué Tappxi</p>
+          <p className="section-label">Por qué Cabpxi</p>
           <p className="section-title">Todo lo que necesitas, en una app</p>
 
           <div style={{
@@ -121,7 +121,7 @@ export default function HomePage() {
       <section style={S.sectionFull}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <p className="section-label">Dos perfiles</p>
-          <p className="section-title">Elige cómo usar Tappxi</p>
+          <p className="section-title">Elige cómo usar Cabpxi</p>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
@@ -193,7 +193,7 @@ export default function HomePage() {
       <section style={{ padding: '80px 32px', textAlign: 'center' }}>
         <div style={{ maxWidth: 520, margin: '0 auto' }}>
           <h2 style={{ fontSize: 36, fontWeight: 500, letterSpacing: -.5, marginBottom: 14 }}>
-            Listo para moverte con <span style={{ color: '#F5C000' }}>Tappxi</span>?
+            Listo para moverte con <span style={{ color: '#F5C000' }}>Cabpxi</span>?
           </h2>
           <p style={{ color: '#888', fontSize: 15, marginBottom: 32 }}>
             Crea tu cuenta gratis en menos de un minuto.
@@ -214,7 +214,7 @@ export default function HomePage() {
           <div style={{ width: 24, height: 24, background: '#F5C000', borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ color: '#000', fontSize: 12 }}><TaxiIcon /></div>
           </div>
-          <span style={{ fontSize: 13, fontWeight: 500 }}>Tapp<span style={{ color: '#F5C000' }}>xi</span></span>
+          <span style={{ fontSize: 13, fontWeight: 500 }}>Cabp<span style={{ color: '#F5C000' }}>xi</span></span>
           <span style={{ fontSize: 12, color: '#555', marginLeft: 8 }}>© 2025</span>
         </div>
         <div style={{ display: 'flex', gap: 20 }}>
