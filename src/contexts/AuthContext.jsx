@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser]       = useState(undefined); // undefined = todavía cargando
+  const [user, setUser]     = useState(undefined); // undefined = todavía cargando
   const [loading, setLoading] = useState(true);
 
   const buildUser = useCallback(async (authUser) => {
@@ -13,18 +13,20 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
       return;
     }
-    // Primero setear con metadata del token (instantáneo, sin BD)
+
+    // Setear inmediatamente con datos del token JWT
     const tokenUser = {
       id:    authUser.id,
       email: authUser.email,
-      name:  authUser.user_metadata?.name  ?? 'Usuario',
-      phone: authUser.user_metadata?.phone ?? null,
-      role:  authUser.user_metadata?.role  ?? 'PASSENGER',
+      name:  authUser.user_metadata?.name        ?? authUser.user_metadata?.full_name ?? 'Usuario',
+      phone: authUser.user_metadata?.phone       ?? null,
+      role:  authUser.user_metadata?.role        ?? 'PASSENGER',
+      avatar: authUser.user_metadata?.avatar_url ?? null, // viene de Google
     };
     setUser(tokenUser);
     setLoading(false);
 
-    // Luego enriquecer con datos de la tabla profiles (en segundo plano)
+    // Enriquecer con tabla profiles en segundo plano
     supabase
       .from('profiles')
       .select('name, phone, role')
@@ -32,12 +34,12 @@ export const AuthProvider = ({ children }) => {
       .single()
       .then(({ data }) => {
         if (data) {
-          setUser({
-            ...tokenUser,
+          setUser(prev => ({
+            ...prev,
             name:  data.name  ?? tokenUser.name,
             phone: data.phone ?? tokenUser.phone,
             role:  data.role  ?? tokenUser.role,
-          });
+          }));
         }
       });
   }, []);
@@ -81,6 +83,25 @@ export const AuthProvider = ({ children }) => {
     return data;
   }, []);
 
+  // Login con Google — redirige a Google y vuelve automáticamente
+  // El rol se pasa como parámetro para guardarlo cuando Supabase retorne
+  const loginWithGoogle = useCallback(async (role = 'PASSENGER') => {
+    // Guardamos el rol elegido en sessionStorage para usarlo al volver
+    sessionStorage.setItem('pendingRole', role);
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
+    });
+    if (error) throw error;
+  }, []);
+
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -96,6 +117,7 @@ export const AuthProvider = ({ children }) => {
       loading,
       login,
       register,
+      loginWithGoogle,
       logout,
       isDriver,
       isPassenger,
